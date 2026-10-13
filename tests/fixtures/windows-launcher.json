@@ -1,0 +1,15 @@
+{
+  "mainClass": "zombie/gameStates/MainScreenState",
+  "classpath": [".", "projectzomboid.jar"],
+  "vmArgs": [
+    "-Djava.awt.headless=true",
+    "-Xmx3072m",
+    "-Dzomboid.steam=1",
+    "--enable-native-access=ALL-UNNAMED",
+    "--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED"
+  ],
+  "windows": {
+    "6.1": {"vmArgs": ["-XX:+UseG1GC"]},
+    "10.0.17134": {"vmArgs": ["-XX:+UseZGC"]}
+  }
+}
