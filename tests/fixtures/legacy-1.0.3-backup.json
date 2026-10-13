@@ -1,0 +1,1 @@
+{"mainClass":"zombie/gameStates/MainScreenState","vmArgs":["-Xmx3072m","-XX:+UseZGC"]}
