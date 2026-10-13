@@ -1,0 +1,77 @@
+name: Build and test
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      request_signing:
+        description: 'Submit to SignPath after the Foundation approves this project'
+        type: boolean
+        required: false
+        default: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check requested signing setup
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.request_signing }}
+        env:
+          SIGNPATH_READY: ${{ vars.SIGNPATH_READY }}
+        run: |
+          if ($env:GITHUB_REF -ne 'refs/heads/main' -or $env:SIGNPATH_READY -ne 'true') {
+            throw 'Signing requires main and completed SignPath Foundation setup.'
+          }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build from source
+        run: ./Build.ps1
+      - name: Core regression suite
+        run: ./tests/Test-Core.ps1
+      - name: Release and legacy-backup checks
+        run: ./tests/Test-Release.ps1
+      - name: Windows Framework smoke test
+        shell: powershell
+        run: ./tests/Test-Windows.ps1
+      - name: Package unsigned build
+        run: ./scripts/Package.ps1
+      - name: Upload unsigned artifact with build provenance
+        id: unsigned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: 2plus-memory-tool-unsigned
+          path: artifacts/unsigned/
+          if-no-files-found: error
+      - name: Submit for manual signing approval
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.request_signing && vars.SIGNPATH_READY == 'true' }}
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 900
+          output-artifact-directory: artifacts/signed
+          parameters: |
+            version: "1.1.1.0"
+      - name: Verify and package signed output
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.request_signing && vars.SIGNPATH_READY == 'true' }}
+        run: ./scripts/Verify-Signed.ps1 -Directory artifacts/signed
+      - name: Upload verified signed output
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.request_signing && vars.SIGNPATH_READY == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: 2plus-memory-tool-signed
+          path: artifacts/signed/
+          if-no-files-found: error
