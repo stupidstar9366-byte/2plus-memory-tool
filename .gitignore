@@ -1,0 +1,13 @@
+.DS_Store
+.packages/
+artifacts/
+build/app.ico
+2plus-Memory-Tool.exe
+*.zip
+tests/run-*/
+tests/release-test-*/
+*.pfx
+*.p12
+*.key
+*.pem
+.env*
